@@ -1,104 +1,152 @@
-import React from "react";
-import { Stack, Link } from "expo-router";
-import { FlatList, Pressable, StyleSheet, View, Text, Alert, Platform } from "react-native";
-import { IconSymbol } from "@/components/IconSymbol";
-import { GlassView } from "expo-glass-effect";
-import { useTheme } from "@react-navigation/native";
 
-const ICON_COLOR = "#007AFF";
+import React from "react";
+import { Stack, useRouter } from "expo-router";
+import { ScrollView, Pressable, StyleSheet, View, Text, Platform } from "react-native";
+import { IconSymbol } from "@/components/IconSymbol";
+import { usePuzzles } from "@/contexts/PuzzleContext";
+import { colors } from "@/styles/commonStyles";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
 
 export default function HomeScreen() {
-  const theme = useTheme();
-  const modalDemos = [
-    {
-      title: "Standard Modal",
-      description: "Full screen modal presentation",
-      route: "/modal",
-      color: "#007AFF",
-    },
-    {
-      title: "Form Sheet",
-      description: "Bottom sheet with detents and grabber",
-      route: "/formsheet",
-      color: "#34C759",
-    },
-    {
-      title: "Transparent Modal",
-      description: "Overlay without obscuring background",
-      route: "/transparent-modal",
-      color: "#FF9500",
+  const router = useRouter();
+  const { puzzles, userProfile } = usePuzzles();
+
+  const handlePuzzlePress = (puzzleId: string) => {
+    console.log('Navigating to puzzle:', puzzleId);
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-  ];
+    router.push(`/puzzle/${puzzleId}`);
+  };
 
-  const renderModalDemo = ({ item }: { item: (typeof modalDemos)[0] }) => (
-    <GlassView style={[
-      styles.demoCard,
-      Platform.OS !== 'ios' && { backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
-    ]} glassEffectStyle="regular">
-      <View style={[styles.demoIcon, { backgroundColor: item.color }]}>
-        <IconSymbol name="square.grid.3x3" color="white" size={24} />
-      </View>
-      <View style={styles.demoContent}>
-        <Text style={[styles.demoTitle, { color: theme.colors.text }]}>{item.title}</Text>
-        <Text style={[styles.demoDescription, { color: theme.dark ? '#98989D' : '#666' }]}>{item.description}</Text>
-      </View>
-      <Link href={item.route as any} asChild>
-        <Pressable>
-          <GlassView style={[
-            styles.tryButton,
-            Platform.OS !== 'ios' && { backgroundColor: theme.dark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)' }
-          ]} glassEffectStyle="clear">
-            <Text style={[styles.tryButtonText, { color: theme.colors.primary }]}>Try It</Text>
-          </GlassView>
-        </Pressable>
-      </Link>
-    </GlassView>
-  );
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty) {
+      case 'easy':
+        return colors.highlight;
+      case 'medium':
+        return colors.accent;
+      case 'hard':
+        return colors.primary;
+      default:
+        return colors.secondary;
+    }
+  };
 
-  const renderHeaderRight = () => (
-    <Pressable
-      onPress={() => Alert.alert("Not Implemented", "This feature is not implemented yet")}
-      style={styles.headerButtonContainer}
-    >
-      <IconSymbol name="plus" color={theme.colors.primary} />
-    </Pressable>
-  );
-
-  const renderHeaderLeft = () => (
-    <Pressable
-      onPress={() => Alert.alert("Not Implemented", "This feature is not implemented yet")}
-      style={styles.headerButtonContainer}
-    >
-      <IconSymbol
-        name="gear"
-        color={theme.colors.primary}
-      />
-    </Pressable>
-  );
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case 'math':
+        return 'function';
+      case 'word':
+        return 'text.quote';
+      case 'logic':
+        return 'brain.head.profile';
+      default:
+        return 'puzzlepiece.fill';
+    }
+  };
 
   return (
     <>
       {Platform.OS === 'ios' && (
         <Stack.Screen
           options={{
-            title: "Building the app...",
-            headerRight: renderHeaderRight,
-            headerLeft: renderHeaderLeft,
+            title: "Puzzle Rewards",
+            headerLargeTitle: true,
           }}
         />
       )}
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <FlatList
-          data={modalDemos}
-          renderItem={renderModalDemo}
-          keyExtractor={(item) => item.route}
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <ScrollView
+          style={styles.scrollView}
           contentContainerStyle={[
-            styles.listContainer,
-            Platform.OS !== 'ios' && styles.listContainerWithTabBar
+            styles.contentContainer,
+            Platform.OS !== 'ios' && styles.contentContainerWithTabBar
           ]}
-          contentInsetAdjustmentBehavior="automatic"
           showsVerticalScrollIndicator={false}
-        />
+        >
+          <View style={styles.statsCard}>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>${userProfile.totalEarnings}</Text>
+              <Text style={styles.statLabel}>Total Earned</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{userProfile.puzzlesSolved}</Text>
+              <Text style={styles.statLabel}>Puzzles Solved</Text>
+            </View>
+          </View>
+
+          <Text style={styles.sectionTitle}>Available Puzzles</Text>
+          <Text style={styles.sectionSubtitle}>
+            Solve puzzles and earn $10 for each one!
+          </Text>
+
+          {puzzles.map((puzzle, index) => (
+            <Animated.View
+              key={puzzle.id}
+              entering={FadeInDown.delay(index * 100).springify()}
+            >
+              <Pressable
+                style={[
+                  styles.puzzleCard,
+                  puzzle.completed && styles.puzzleCardCompleted,
+                ]}
+                onPress={() => handlePuzzlePress(puzzle.id)}
+                disabled={puzzle.completed}
+              >
+                <View style={styles.puzzleHeader}>
+                  <View
+                    style={[
+                      styles.puzzleIcon,
+                      { backgroundColor: getDifficultyColor(puzzle.difficulty) },
+                    ]}
+                  >
+                    <IconSymbol
+                      name={getTypeIcon(puzzle.type) as any}
+                      size={24}
+                      color={colors.card}
+                    />
+                  </View>
+                  <View style={styles.puzzleInfo}>
+                    <Text style={styles.puzzleTitle}>{puzzle.title}</Text>
+                    <Text style={styles.puzzleDescription}>
+                      {puzzle.description}
+                    </Text>
+                  </View>
+                  {puzzle.completed ? (
+                    <View style={styles.completedBadge}>
+                      <IconSymbol
+                        name="checkmark.circle.fill"
+                        size={28}
+                        color={colors.highlight}
+                      />
+                    </View>
+                  ) : (
+                    <View style={styles.rewardBadge}>
+                      <Text style={styles.rewardText}>${puzzle.reward}</Text>
+                    </View>
+                  )}
+                </View>
+                <View style={styles.puzzleFooter}>
+                  <View
+                    style={[
+                      styles.difficultyBadge,
+                      { backgroundColor: getDifficultyColor(puzzle.difficulty) },
+                    ]}
+                  >
+                    <Text style={styles.difficultyText}>
+                      {puzzle.difficulty.toUpperCase()}
+                    </Text>
+                  </View>
+                  <Text style={styles.puzzleType}>
+                    {puzzle.type.charAt(0).toUpperCase() + puzzle.type.slice(1)} Puzzle
+                  </Text>
+                </View>
+              </Pressable>
+            </Animated.View>
+          ))}
+        </ScrollView>
       </View>
     </>
   );
@@ -107,55 +155,129 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    // backgroundColor handled dynamically
   },
-  listContainer: {
+  scrollView: {
+    flex: 1,
+  },
+  contentContainer: {
     paddingVertical: 16,
     paddingHorizontal: 16,
   },
-  listContainerWithTabBar: {
-    paddingBottom: 100, // Extra padding for floating tab bar
+  contentContainerWithTabBar: {
+    paddingBottom: 100,
   },
-  demoCard: {
+  statsCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.1)',
+    elevation: 4,
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: colors.primary,
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  statDivider: {
+    width: 1,
+    height: 50,
+    backgroundColor: colors.textSecondary,
+    opacity: 0.3,
+  },
+  sectionTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  sectionSubtitle: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    marginBottom: 16,
+  },
+  puzzleCard: {
+    backgroundColor: colors.card,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
+    elevation: 2,
+  },
+  puzzleCardCompleted: {
+    opacity: 0.6,
+  },
+  puzzleHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 12,
   },
-  demoIcon: {
+  puzzleIcon: {
     width: 48,
     height: 48,
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 12,
   },
-  demoContent: {
+  puzzleInfo: {
     flex: 1,
   },
-  demoTitle: {
+  puzzleTitle: {
     fontSize: 18,
     fontWeight: '600',
+    color: colors.text,
     marginBottom: 4,
-    // color handled dynamically
   },
-  demoDescription: {
+  puzzleDescription: {
     fontSize: 14,
-    lineHeight: 18,
-    // color handled dynamically
+    color: colors.textSecondary,
   },
-  headerButtonContainer: {
-    padding: 6,
+  completedBadge: {
+    marginLeft: 8,
   },
-  tryButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
+  rewardBadge: {
+    backgroundColor: colors.highlight,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginLeft: 8,
   },
-  tryButtonText: {
+  rewardText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.card,
+  },
+  puzzleFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  difficultyBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  difficultyText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: colors.card,
+  },
+  puzzleType: {
     fontSize: 14,
-    fontWeight: '600',
-    // color handled dynamically
+    color: colors.textSecondary,
+    fontWeight: '500',
   },
 });
